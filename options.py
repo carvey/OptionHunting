@@ -1,41 +1,3 @@
-# Import the client
-import sys
-import pprint
-import logging
-from math import log, sqrt
-from mibian import BS
-from openpyxl import Workbook
-from td.client import TDClient
-from itertools import combinations
-from datetime import datetime, timedelta
-from td.option_chain import OptionChain as OptionParams
-
-# Note: reddit user says TDA API rate limit is 120 calls / minute
-
-"""
-Need to:
-    1) pull down account status
-    3) display account positions
-    4) search for options that meet TOMIC criteria
-    10) add in days since underlying last hit short leg strike
-    12) do something with IV
-    17) set trade critera (account size, max acceptable loss)
-    19) add beta for each symbol
-    20) add a sheet for fundamentals
-    21) check assumption: long open interest more important. may not be the case. get avg or keep short??
-"""
-
-# create logger
-logger = logging.getLogger('optionhunting')
-logger.setLevel(logging.INFO)
-
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
-
-
 class OptionChain:
 
     def __init__(self, symbol: str):
@@ -245,7 +207,7 @@ class VertSpread:
         return (pop - 40) / 12
 
     def _model_rr(self, rr):
-        # anything with a reward/risk less than 10 is not within my acceptable levels of risk and 
+        # anything with a reward/risk less than 10 is not within my acceptable levels of risk and
         # would throw a domain error (ValueError in python) if ran through this model
         if rr < 10:
             return 0
@@ -258,7 +220,7 @@ class VertSpread:
     def _calculate_score(self, rr, pop):
         """
         The idea with this is to combine the reward/risk ratio and probability of profit to
-        get a one-look estimate of how profitable the trade will be. 
+        get a one-look estimate of how profitable the trade will be.
 
         Assumptions and risk are built into the model. So no RR < 10, and POP of anything < 40 is
         also discared. POP is given some allowance to account for differences in how POP is calculated.
@@ -266,7 +228,7 @@ class VertSpread:
         A score of 100 represents approximately 100% RR and 100% POP. If a score anywhere close to 100
         shows up the model should probably get a tuning.
 
-        After running some tests, any score over 7.5 seems to be an interesting trade. 
+        After running some tests, any score over 7.5 seems to be an interesting trade.
         """
         return round(self._model_rr(rr) * self._model_pop(pop), 2)
 
@@ -479,61 +441,3 @@ class Instrument:
         spreads = Analyzer.analyze_trades(self, trades)
 
         return spreads
-
-
-class ExcelFormatter:
-
-    def __init__(self, document):
-        self.wkbook = Workbook()
-        self.sheet = self.wkbook.active
-
-        self.filename = "%s.xlsx" % document
-
-    def save(self):
-        self.wkbook.save(filename=self.filename)
-
-    def write(self, data: list, save=True):
-        self.sheet.append(data)
-        if save:
-            self.save()
-
-
-pp = pprint.PrettyPrinter(indent=4)
-
-class TDAuth:
-
-    def __init__(self):
-        client_file = open('tda.txt', 'r')
-        client_id = client_file.read().strip()
-        client_file.close()
-
-        # Create a new session, credentials path is optional.
-        self.td_client = TDClient(
-            client_id=client_id,
-            redirect_uri='http://localhost',
-            credentials_path='creds2.txt'
-        )
-
-        # Login to the session
-        self.td_client.login()
-
-td_client = TDAuth().td_client
-
-# this must be pulling from real account and not paper traded?
-watchlist = Watchlist('Option Scanning')
-
-# need to add searching/filtering from this level. Not buried in the classes
-# list of dicts (each item is an instrument), where each key is a date and values are lists of VerticalSpreads
-instrument_spreads = watchlist.analyze_strategy(VertSpread)
-
-dt = str(datetime.now()).split('.')[0]
-log = ExcelFormatter("log %s" % dt)
-log.write(VertSpread.print_fields)
-
-for instrument in instrument_spreads:
-    for exp_date, spreads in instrument.items():
-        for vert_spread in spreads:
-            details = vert_spread.details()
-            log.write(details, False)
-
-log.save()
