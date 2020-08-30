@@ -1,6 +1,7 @@
 import sys
 import logging
 from math import sqrt
+from utils import get_param
 from datetime import datetime, timedelta
 from td.option_chain import OptionChain as OptionParams
 from itertools import combinations
@@ -21,7 +22,7 @@ class OptionChain:
     def __init__(self, client, symbol: str):
         self.td_client = client
         logger.info("Building Options Chain for: %s" % symbol)
-        date_range = datetime.today() + timedelta(50)
+        date_range = datetime.today() + timedelta(get_param('search days'))
         self.params = OptionParams(symbol=symbol, strategy="SINGLE", contract_type="PUT", opt_range='otm',
                                    to_date=date_range, include_quotes="TRUE")
         self.params.validate_chain()
@@ -330,9 +331,8 @@ class VertSpread:
                 self.short.gamma, self.long.gamma, self.net_gamma, self.short.vega, self.long.vega, self.net_vega]
 
     def acceptable(self):
-
-        option_budget = int(sys.argv[1])
-        acceptable_risk_percent = 9
+        option_budget = get_param('account size')
+        acceptable_risk_percent = get_param('max risk per trade')
         acceptable_risk = option_budget * (acceptable_risk_percent / 100)
 
         avg_volume = (self.long.totalVolume + self.short.totalVolume) / 2
