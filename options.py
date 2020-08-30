@@ -1,6 +1,25 @@
+import sys
+import logging
+from math import sqrt
+from datetime import datetime, timedelta
+from td.option_chain import OptionChain as OptionParams
+from itertools import combinations
+
+# create logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+
 class OptionChain:
 
-    def __init__(self, symbol: str):
+    def __init__(self, client, symbol: str):
+        self.td_client = client
         logger.info("Building Options Chain for: %s" % symbol)
         date_range = datetime.today() + timedelta(50)
         self.params = OptionParams(symbol=symbol, strategy="SINGLE", contract_type="PUT", opt_range='otm',
@@ -9,7 +28,7 @@ class OptionChain:
 
         self.dates = []
 
-        chain_raw = td_client.get_options_chain(option_chain=self.params)
+        chain_raw = self.td_client.get_options_chain(option_chain=self.params)
         self.process_raw_chain(chain_raw)
 
         strike_count = 0
@@ -167,6 +186,7 @@ class OptionStrike:
 
         if self.vega == 'NaN':
             self.vega = 0
+
 
 class VertSpread:
     print_fields = []
@@ -360,67 +380,12 @@ class VertSpread:
         return spreads
 
 
-class Watchlist:
-
-    def __init__(self, name):
-        self.instruments = {'EQUITY': [], 'ETF': []}
-        self.raw = None
-
-        lists = td_client.get_watchlist_accounts('all')
-
-        for watchlist in lists:
-            if watchlist['name'] == name:
-                account_id = watchlist['accountId']
-                watchlist_id = watchlist['watchlistId']
-                self.raw = td_client.get_watchlist(account=account_id, watchlist_id=watchlist_id)
-
-        if not self.raw:
-            print("No watchlist found: %s" % name)
-        else:
-            self.process_raw_watchlist(self.raw)
-
-    def __str__(self):
-        return self.name
-
-    def __repr__(self):
-        return self.__str__()
-
-    def all(self):
-        instruments = []
-        for types, instrument_list in self.instruments.items():
-            for instrument in instrument_list:
-                instruments.append(instrument)
-
-        return instruments
-
-    def process_raw_watchlist(self, raw_watchlist: dict) -> None:
-        self.account_id = raw_watchlist['accountId']
-        self.name = raw_watchlist['name']
-        self.watchlist_id = raw_watchlist['watchlistId']
-
-        for item in raw_watchlist['watchlistItems']:
-            instrument_dict = item['instrument']
-            instrument_type = instrument_dict['assetType']
-            symbol = instrument_dict['symbol']
-
-            instrument = Instrument(symbol)
-
-            self.instruments[instrument_type].append(instrument)
-
-    def analyze_strategy(self, Analyzer):
-        spreads = []
-        for instrument in self.all():
-            logger.info("Analyzing symbol: %s" % instrument)
-            spreads.append(instrument.analyze_strategy(Analyzer))
-
-        return spreads
-
-
 class Instrument:
 
-    def __init__(self, symbol):
+    def __init__(self, client, symbol):
+        self.td_client = client
         self.symbol = symbol
-        self.chain = OptionChain(self.symbol)
+        self.chain = OptionChain(self.td_client, self.symbol)
 
         self.quote = self.chain.underlying
         self.last = self.quote['last']

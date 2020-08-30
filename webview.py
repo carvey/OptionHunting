@@ -1,5 +1,5 @@
 from flask import Flask, render_template
-from optionhunting import TDApi
+from account import TDAuth
 app = Flask(__name__)
 
 @app.route('/')
