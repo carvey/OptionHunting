@@ -34,20 +34,3 @@ logger.addHandler(ch)
 pp = pprint.PrettyPrinter(indent=4)
 
 
-class TDAuth:
-
-    def __init__(self):
-        client_file = open('tda.txt', 'r')
-        client_id = client_file.read().strip()
-        client_file.close()
-
-        # Create a new session, credentials path is optional.
-        self.td_client = TDClient(
-            client_id=client_id,
-            redirect_uri='http://localhost',
-            credentials_path='creds2.txt'
-        )
-
-        # Login to the session
-        self.td_client.login()
-

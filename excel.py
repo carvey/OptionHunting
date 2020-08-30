@@ -1,3 +1,4 @@
+from utils import get_param
 from openpyxl import Workbook
 from account import TDAuth, Watchlist
 from options import VertSpread
@@ -24,7 +25,7 @@ class ExcelFormatter:
 td_client = TDAuth().td_client
 
 # this must be pulling from real account and not paper traded?
-watchlist = Watchlist(td_client, 'Option Scanning')
+watchlist = Watchlist(td_client, get_param('watchlist'))
 
 # need to add searching/filtering from this level. Not buried in the classes
 # list of dicts (each item is an instrument), where each key is a date and values are lists of VerticalSpreads
