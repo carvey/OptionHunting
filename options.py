@@ -204,7 +204,7 @@ class VertSpread:
         self.setup_print_fields()
 
     def __str__(self) -> str:
-        return "%s %s %s/%s" % (self.symbol, self.expiration, self.short.strikePrice, self.long.strikePrice)
+        return "%s %s %s/%s" % (self.instrument.symbol, self.expiration, self.short.strikePrice, self.long.strikePrice)
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -238,7 +238,7 @@ class VertSpread:
             # 20/sqrt(90) is used as a multiplier to ensure that this function equals 20 at rr=100
             return sqrt(rr-10) * (20/sqrt(90))
 
-    def _calculate_score(self, rr, pop):
+    def _calculate_score(self, rr, pop, potm):
         """
         The idea with this is to combine the reward/risk ratio and probability of profit to
         get a one-look estimate of how profitable the trade will be.
@@ -251,7 +251,13 @@ class VertSpread:
 
         After running some tests, any score over 7.5 seems to be an interesting trade.
         """
-        return round(self._model_rr(rr) * self._model_pop(pop), 2)
+        score = self._model_rr(rr) * self._model_pop(pop)
+
+        # add the % OTM to the final score
+        # ex if score = 25 and % OTM = 10 then the final score should be 27.5
+        #score += score/potm
+        
+        return round(score, 2)
 
 
     def analyze(self) -> None:
@@ -277,16 +283,14 @@ class VertSpread:
         self.pop = round(100 - (abs(self.short.delta) * 100), 2)
 
         # percent OTM
-        # self.potm = round(100 - (self.short.StrikePrice/self.), 2)
+        self.potm = round(100 - ((self.short.strikePrice / self.instrument.last) * 100), 2)
 
         # aggregated risk score. Needs improvement.
-        self.score = self._calculate_score(self.rr, self.pop)
+        self.score = self._calculate_score(self.rr, self.pop, self.potm)
 
         self.total_spread = self.short.spread + self.long.spread
         self.avg_volume = (self.short.totalVolume + self.long.totalVolume) / 2
 
-        # percent OTM
-        self.potm = round(100 - ((self.short.strikePrice / self.instrument.last) * 100), 2)
 
         # Greeks!
         self.net_delta = self.short.delta - self.long.delta

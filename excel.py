@@ -1,8 +1,21 @@
+import logging
 from utils import get_param
 from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font
 from account import TDAuth, Watchlist
 from options import VertSpread
 from datetime import datetime
+
+# create logger
+logger = logging.getLogger("excel")
+logger.setLevel(logging.INFO)
+
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
 
 
 class ExcelFormatter:
@@ -13,13 +26,28 @@ class ExcelFormatter:
 
         self.filename = "%s.xlsx" % document
 
+        self.alignment = Alignment(horizontal="center")
+        self.bold = Font(bold=True)
+
     def save(self):
+        # apply the styles
+        for header in self.sheet["1:1"]:
+            header.font = self.bold
+
+        for row in self.sheet.rows:
+            for cell in row:
+                cell.alignment = self.alignment
+
+        for column in self.sheet.columns:
+            bold_columns = ["% OTM", "R/R", "POP", "Score"]
+            if column[0].value in bold_columns:
+                for cell in column:
+                    cell.font = self.bold
+
         self.wkbook.save(filename=self.filename)
 
-    def write(self, data: list, save=True):
+    def write(self, data: list):
         self.sheet.append(data)
-        if save:
-            self.save()
 
 
 td_client = TDAuth().td_client
@@ -32,13 +60,38 @@ watchlist = Watchlist(td_client, get_param('watchlist'))
 instrument_spreads = watchlist.analyze_strategy(VertSpread)
 
 dt = str(datetime.now()).split('.')[0]
-log = ExcelFormatter("log %s" % dt)
-log.write(VertSpread.print_fields)
+filename = "Option Hunter %s" % dt
+sheet = ExcelFormatter(filename)
+sheet.write(VertSpread.print_fields)
 
+# instrument spreads is a dict with a bunch of instrument expiration dates
 for instrument in instrument_spreads:
-    for exp_date, spreads in instrument.items():
-        for vert_spread in spreads:
-            details = vert_spread.details()
-            log.write(details, False)
+    # these are for logging
+    # at this level we don't know what the symbol is so this will be set if there are any expiration dates in the dict
+    # probably a cleaner way to do this...
+    symbol = ""
+    count = 0
 
-log.save()
+    # loop through all the expiration dates
+    for exp_date, spreads in instrument.items():
+
+        # set the symbol now that we have expiration dates to look at
+        if not symbol:
+            symbol = exp_date.symbol
+
+        # loop through all spreads in for an expiration date
+        for vert_spread in spreads:
+
+            # only show acceptable trades
+            # no score of 0 is considered acceptable
+            if vert_spread.score > 0:
+                details = vert_spread.details()
+                sheet.write(details)
+
+                count += 1
+
+    logger.info("Wrote %s %s spreads to %s.xlsx" % (count, symbol, filename))
+
+sheet.save()
+
+

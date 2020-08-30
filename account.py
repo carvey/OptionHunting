@@ -87,3 +87,4 @@ class TDAuth:
 
         # Login to the session
         self.td_client.login()
+
