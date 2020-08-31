@@ -20,7 +20,7 @@ Run the program with the following command. Note that the first time you run thi
    python3 excel.py
    ```
 ### TD Ameritrade Auth Error 
-During first run of `excel.py` the `creds.txt` file is not populated and yo will need to authente without a web server, hence the "http://localhost" above. `excel.py` will generate a url for you to browse IOT authenticate (see example 1 below). If tdameritrade throws an error (:A third-party application may be attempting to make unauthorized..."), then try Example 2.  
+During first run of `excel.py` the `creds.txt` file is not populated and you will need to authenticate without a web server, hence the "http://localhost" above. `excel.py` will generate a url for you to browse IOT authenticate (see example 1 below). If tdameritrade throws an error (`A third-party application may be attempting to make unauthorized...`), then try Example 2.    
 
 Example 1: 
    ```
