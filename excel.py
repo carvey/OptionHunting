@@ -1,11 +1,15 @@
 import logging
+import optparse
 from utils import get_param
 from openpyxl import Workbook
-from openpyxl.utils import get_column_letter
-from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font
+from openpyxl.styles import  Alignment, Font
 from account import TDAuth, Watchlist
 from options import VertSpread
 from datetime import datetime
+
+parser = optparse.OptionParser("usage: %prog [-t]")
+parser.add_option('-t', "--test", action="store_true", dest="test", default=False)
+options, args = parser.parse_args()
 
 # create logger
 logger = logging.getLogger("excel")
@@ -53,13 +57,17 @@ class ExcelFormatter:
 td_client = TDAuth().td_client
 
 # this must be pulling from real account and not paper traded?
-watchlist = Watchlist(td_client, get_param('watchlist'))
+if options.test:
+    watchlist = Watchlist(td_client, get_param('test watchlist'))
+else:
+    watchlist = Watchlist(td_client, get_param('watchlist'))
+
 
 # need to add searching/filtering from this level. Not buried in the classes
 # list of dicts (each item is an instrument), where each key is a date and values are lists of VerticalSpreads
 instrument_spreads = watchlist.analyze_strategy(VertSpread)
 
-dt = str(datetime.now()).split('.')[0]
+dt = datetime.strftime(datetime.now(), "%d %b %Y %I-%M-%S")
 filename = "Option Hunter %s" % dt
 sheet = ExcelFormatter(filename)
 sheet.write(VertSpread.print_fields)
