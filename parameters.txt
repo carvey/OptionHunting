@@ -1,6 +1,5 @@
 {
 	"watchlist": "Option Hunting",
-	"test watchlist": "Testing",
 	"account size": 5000,
 	"max risk per trade": 10,
 	"max total risk": 5000,
