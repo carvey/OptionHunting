@@ -1,4 +1,5 @@
 import sys
+import json
 import logging
 from math import sqrt
 from utils import get_param
@@ -23,13 +24,14 @@ class OptionChain:
         self.td_client = client
         logger.info("Building Options Chain for: %s" % symbol)
         date_range = datetime.today() + timedelta(get_param('search days'))
-        self.params = OptionParams(symbol=symbol, strategy="SINGLE", contract_type="PUT", opt_range='otm',
+        self.params = OptionParams(symbol=symbol, strategy="SINGLE",  opt_range='otm',
                                    to_date=date_range, include_quotes="TRUE")
         self.params.validate_chain()
 
         self.dates = []
 
         chain_raw = self.td_client.get_options_chain(option_chain=self.params)
+
         self.process_raw_chain(chain_raw)
 
         strike_count = 0
@@ -45,9 +47,18 @@ class OptionChain:
 
         self.underlying = chain_raw['underlying']
 
+        # NOTE that different put and call OptionExpDate instances are generated. Should they be merged??
         for exp_date in chain_raw['putExpDateMap']:
             exp_datetime = self.clean_exp_format(exp_date)
-            self.dates.append(OptionExpDate(self.symbol, exp_datetime, chain_raw['putExpDateMap'][exp_date]))
+            expiration = OptionExpDate(self.symbol, exp_datetime, chain_raw['putExpDateMap'][exp_date])
+            self.dates.append(expiration)
+
+            if exp_date in chain_raw['callExpDateMap']:
+                pass
+
+        for exp_date in chain_raw['callExpDateMap']:
+            exp_datetime = self.clean_exp_format(exp_date)
+            self.dates.append(OptionExpDate(self.symbol, exp_datetime, chain_raw['callExpDateMap'][exp_date]))
 
     def clean_exp_format(self, expiration_str: str):
         expiration_str = expiration_str.split(":")[0]
@@ -259,7 +270,6 @@ class VertSpread:
         
         return round(score, 2)
 
-
     def analyze(self) -> None:
         self.description = "%s / %s" % (self.short.description, self.long.description)
         self.underlying_symbol = self.description.split(' ')[0]
@@ -291,7 +301,6 @@ class VertSpread:
         self.total_spread = self.short.spread + self.long.spread
         self.avg_volume = (self.short.totalVolume + self.long.totalVolume) / 2
 
-
         # Greeks!
         self.net_delta = self.short.delta - self.long.delta
         self.net_theta = self.short.theta - self.long.theta
@@ -308,10 +317,15 @@ class VertSpread:
         symbol, expiration date, short strike, long strike, net credit, profit, max loss, rr, pop, score
 
         """
-        columns = ["Symbol", "DTE", "Expiration Date", "S. Strike", "L. Strike", "UL Last", "% OTM", "UL Low",
-                   "UL High", "L. Open Interest", "Net Credit", "Premium", "Max Loss", "R/R", "POP", "Score", "L. Spread",
-                   "S. Spread", "Total Spread", "L. Volume", "S. Volume", "Avg Volume", "S. Delta", "L. Delta", "Net Delta",
-                   "S. Theta", "L. Theta", "Net Theta", "S. Gamma", "L. Gamma", "Net Gamma", "S. Vega", "L. Vega", "Net Vega"]
+        columns = ["Symbol", "Type", "DTE", "Expiration Date", "S. Strike", "L. Strike", "UL Last", "% OTM", "UL Low",
+                   "UL High", "Net Credit", "Premium", "Max Loss", "R/R", "POP", "Score", "L. Spread",
+                   "S. Spread", "Total Spread",
+                   "L. Volume", "S. Volume", "Avg Volume",
+                   "S. Open Interest", "L. Open Interest",
+                   "S. Delta", "L. Delta", "Net Delta",
+                   "S. Theta", "L. Theta", "Net Theta",
+                   "S. Gamma", "L. Gamma", "Net Gamma",
+                   "S. Vega", "L. Vega", "Net Vega"]
 
         for column in columns:
             if column not in VertSpread.print_fields:
@@ -324,13 +338,13 @@ class VertSpread:
 
         :return:
         """
-        return [self.underlying_symbol, self.short.daysToExpiration, self.expiration, self.short.strikePrice,
+        return [self.underlying_symbol, self.type, self.short.daysToExpiration, self.expiration, self.short.strikePrice,
                 self.long.strikePrice,
                 self.instrument.last, self.potm, self.instrument.low, self.instrument.high,
-                self.long.openInterest,
-                self.net_credit, self.profit, self.risk, self.rr, self.pop, self.score, self.long.spread,
-                self.short.spread,
-                self.total_spread, self.long.totalVolume, self.short.totalVolume, self.avg_volume,
+                self.net_credit, self.profit, self.risk, self.rr, self.pop, self.score,
+                self.long.spread, self.short.spread, self.total_spread,
+                self.long.totalVolume, self.short.totalVolume, self.avg_volume,
+                self.short.openInterest, self.long.openInterest,
                 self.short.delta, self.long.delta, self.net_delta, self.short.theta, self.long.theta, self.net_theta,
                 self.short.gamma, self.long.gamma, self.net_gamma, self.short.vega, self.long.vega, self.net_vega]
 
@@ -339,12 +353,13 @@ class VertSpread:
         acceptable_risk_percent = get_param('max risk per trade')
         acceptable_risk = option_budget * (acceptable_risk_percent / 100)
 
-        avg_volume = (self.long.totalVolume + self.short.totalVolume) / 2
+        #avg_volume = (self.long.totalVolume + self.short.totalVolume) / 2
 
         # only add this as an acceptable trade if the max loss is in the acceptable range
         if self.risk <= acceptable_risk:
             if self.net_credit > 0:
-                if avg_volume >= 100:
+                #if avg_volume >= 100:
+                if self.short.totalVolume > 100 and self.long.totalVolume > 100:
                     if self.long.openInterest > 1000 and self.short.openInterest > 1000:
                         return True
 
@@ -376,12 +391,33 @@ class VertSpread:
                 if short_leg.description == long_leg.description:
                     continue
 
-                spread = VertSpread(instrument, short_leg, long_leg)
+                put_spread = PutCreditSpread(instrument, short_leg, long_leg)
 
-                if spread.acceptable():
-                    spreads[date].append(spread)
+                # need to change the long_leg / short_leg terminology here now that call spreads are being utilized
+                # calls = CallCreditSpread(instrument, long_leg, short_leg)
+
+                if put_spread.acceptable():
+                    spreads[date].append(put_spread)
 
         return spreads
+
+
+class PutCreditSpread(VertSpread):
+
+    def __init__(self, *args, **kwargs):
+        self.type = "PUT"
+        super(PutCreditSpread, self).__init__(*args, **kwargs)
+
+
+class CallCreditSpread(VertSpread):
+
+    def __init__(self, *args, **kwargs):
+        self.type = "CALL"
+        super(CallCreditSpread, self).__init__(*args, **kwargs)
+
+
+class IronCondor:
+    pass
 
 
 class Instrument:
