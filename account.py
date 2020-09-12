@@ -62,11 +62,13 @@ class Watchlist:
 
             self.instruments[instrument_type].append(instrument)
 
-    def analyze_strategy(self, Analyzer):
+    def analyze_strategy(self):
         spreads = []
         for instrument in self.all():
             logger.info("Analyzing symbol: %s" % instrument)
-            spreads.append(instrument.analyze_strategy(Analyzer))
+            put_spreads, call_spreads = instrument.analyze_strategies()
+            spreads.append(put_spreads)
+            spreads.append(call_spreads)
 
         return spreads
 

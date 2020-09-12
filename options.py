@@ -50,15 +50,15 @@ class OptionChain:
         # NOTE that different put and call OptionExpDate instances are generated. Should they be merged??
         for exp_date in chain_raw['putExpDateMap']:
             exp_datetime = self.clean_exp_format(exp_date)
-            expiration = OptionExpDate(self.symbol, exp_datetime, chain_raw['putExpDateMap'][exp_date])
+            expiration = OptionExpDate(self.symbol, exp_datetime, chain_raw['putExpDateMap'][exp_date], chain_raw['callExpDateMap'][exp_date])
             self.dates.append(expiration)
 
-            if exp_date in chain_raw['callExpDateMap']:
-                pass
+            #if exp_date in chain_raw['callExpDateMap']:
+            #    pass
 
-        for exp_date in chain_raw['callExpDateMap']:
-            exp_datetime = self.clean_exp_format(exp_date)
-            self.dates.append(OptionExpDate(self.symbol, exp_datetime, chain_raw['callExpDateMap'][exp_date]))
+        #for exp_date in chain_raw['callExpDateMap']:
+            #exp_datetime = self.clean_exp_format(exp_date)
+            #self.dates.append(OptionExpDate(self.symbol, exp_datetime, chain_raw['callExpDateMap'][exp_date]))
 
     def clean_exp_format(self, expiration_str: str):
         expiration_str = expiration_str.split(":")[0]
@@ -89,12 +89,14 @@ class OptionChain:
 
 class OptionExpDate:
 
-    def __init__(self, symbol: str, expiration: str, raw_date: dict):
+    def __init__(self, symbol: str, expiration: str, put_dates: dict, call_dates: dict):
         self.expiration = expiration
         self.symbol = symbol
-        self.strikes = []
 
-        self.process_raw_date(raw_date)
+        self.calls = []
+        self.puts = []
+
+        self.process_raw_date(put_dates, call_dates)
 
     def __str__(self) -> str:
         return "%s(%s)" % (self.symbol, self.expiration)
@@ -103,11 +105,14 @@ class OptionExpDate:
         return self.__str__()
 
     def __len__(self):
-        return len(self.strikes)
+        return len(self.calls) + len(self.puts)
 
-    def process_raw_date(self, raw_date: dict) -> None:
-        for strike, strike_data in raw_date.items():
-            self.strikes.append(OptionStrike(strike, strike_data[0]))
+    def process_raw_date(self, put_dates: dict, call_dates) -> None:
+        for strike, strike_data in call_dates.items():
+            self.calls.append(OptionStrike(strike, strike_data[0]))
+
+        for strike, strike_data in put_dates.items():
+            self.puts.append(OptionStrike(strike, strike_data[0]))
 
 
 class OptionStrike:
@@ -201,7 +206,7 @@ class OptionStrike:
 
 
 class VertSpread:
-    print_fields = []
+    field_names = []
 
     def __init__(self, instrument, short_opt: OptionStrike, long_opt: OptionStrike):
         """
@@ -210,16 +215,22 @@ class VertSpread:
         self.instrument = instrument
         self.short = short_opt
         self.long = long_opt
-        self.analyze()
 
-        self.setup_print_fields()
+        self.description = "%s / %s" % (self.short.description, self.long.description)
+        self.underlying_symbol = self.description.split(' ')[0]
+        self.expiration = ' '.join(self.description.split(' ')[1:4])
+
+        # Greeks!
+        self.net_delta = self.short.delta - self.long.delta
+        self.net_theta = self.short.theta - self.long.theta
+        self.net_gamma = self.short.gamma - self.long.gamma
+        self.net_vega = self.short.vega - self.long.gamma
 
     def __str__(self) -> str:
         return "%s %s %s/%s" % (self.instrument.symbol, self.expiration, self.short.strikePrice, self.long.strikePrice)
 
     def __repr__(self) -> str:
         return self.__str__()
-
 
     def _calculate_credit(self) -> int:
 
@@ -266,19 +277,15 @@ class VertSpread:
 
         # add the % OTM to the final score
         # ex if score = 25 and % OTM = 10 then the final score should be 27.5
-        #score += score/potm
+        score += score * (potm / 100)
         
         return round(score, 2)
 
     def analyze(self) -> None:
-        self.description = "%s / %s" % (self.short.description, self.long.description)
-        self.underlying_symbol = self.description.split(' ')[0]
-        self.expiration = ' '.join(self.description.split(' ')[1:4])
 
         self.net_credit = self._calculate_credit()
         self.profit = round(self.net_credit * 100, 2)
 
-        self.strike_spread = self.short.strikePrice - self.long.strikePrice
         self.risk = round((self.strike_spread - self.net_credit) * 100, 2)
 
         # this happens sometimes and I have no idea what to do about it
@@ -293,7 +300,7 @@ class VertSpread:
         self.pop = round(100 - (abs(self.short.delta) * 100), 2)
 
         # percent OTM
-        self.potm = round(100 - ((self.short.strikePrice / self.instrument.last) * 100), 2)
+        self.potm = abs(round(100 - ((self.short.strikePrice / self.instrument.last) * 100), 2))
 
         # aggregated risk score. Needs improvement.
         self.score = self._calculate_score(self.rr, self.pop, self.potm)
@@ -301,17 +308,11 @@ class VertSpread:
         self.total_spread = self.short.spread + self.long.spread
         self.avg_volume = (self.short.totalVolume + self.long.totalVolume) / 2
 
-        # Greeks!
-        self.net_delta = self.short.delta - self.long.delta
-        self.net_theta = self.short.theta - self.long.theta
-        self.net_gamma = self.short.gamma - self.long.gamma
-        self.net_vega = self.short.vega - self.long.gamma
-
         # euro style IV until I figure out American. Can hopefully approximate
         # this is also IV of short. Need to figure out how to combine for a spread or instrument
         #self.iv = BS([self.instrument.last, self.short.strikePrice, 0, self.short.daysToExpiration], putPrice=self.short.mid).impliedVolatility
 
-    def setup_print_fields(self):
+    def setup_field_names(self):
         """
         Output the following fields when printing:
         symbol, expiration date, short strike, long strike, net credit, profit, max loss, rr, pop, score
@@ -328,8 +329,8 @@ class VertSpread:
                    "S. Vega", "L. Vega", "Net Vega"]
 
         for column in columns:
-            if column not in VertSpread.print_fields:
-                VertSpread.print_fields.append(column)
+            if column not in VertSpread.field_names:
+                VertSpread.field_names.append(column)
 
     def details(self):
         """
@@ -362,24 +363,45 @@ class VertSpread:
                 if self.short.totalVolume > 100 and self.long.totalVolume > 100:
                     if self.long.openInterest > 1000 and self.short.openInterest > 1000:
                         return True
-
         return False
 
+    def to_dict(self):
+        spread: dict = dict(zip(self.field_names, self.details()))
+
+        return spread
+
+    def to_json(self):
+        spread = self.to_dict()
+        return json.dumps(spread)
+
+class PutCreditSpread(VertSpread):
+
+    def __init__(self, *args, **kwargs):
+
+        super(PutCreditSpread, self).__init__(*args, **kwargs)
+        self.type = "PCS"
+        self.strike_spread = self.short.strikePrice - self.long.strikePrice
+
+        self.analyze()
+
+        self.setup_field_names()
+
     @staticmethod
-    def analyze_trades(instrument, exp_dates: OptionExpDate) -> dict:
+    def analyze_trades(instrument, exp_dates: list) -> dict:
         spreads = {}
-        for date, strikes in exp_dates.items():
+        for date in exp_dates:
             spreads[date] = []
+
             # group all the strikes into overlapping pairs of 2
             # and don't get the last one
             # ex: [1, 2, 3] would turn into [[1, 2], [2, 3]]
-            # pdb.set_trace()
 
-            grouped_spreads = list(combinations(strikes, 2))
+            grouped_spreads = list(combinations(date.puts, 2))
             for raw_spread in grouped_spreads:
 
                 # we're looking at all combinations of strikes so we don't know which
                 # order the long and short leg will be in
+
                 if raw_spread[0].strikePrice > raw_spread[1].strikePrice:
                     short_leg = raw_spread[0]
                     long_leg = raw_spread[1]
@@ -393,27 +415,54 @@ class VertSpread:
 
                 put_spread = PutCreditSpread(instrument, short_leg, long_leg)
 
-                # need to change the long_leg / short_leg terminology here now that call spreads are being utilized
-                # calls = CallCreditSpread(instrument, long_leg, short_leg)
-
                 if put_spread.acceptable():
                     spreads[date].append(put_spread)
 
         return spreads
 
 
-class PutCreditSpread(VertSpread):
-
-    def __init__(self, *args, **kwargs):
-        self.type = "PUT"
-        super(PutCreditSpread, self).__init__(*args, **kwargs)
-
-
 class CallCreditSpread(VertSpread):
 
     def __init__(self, *args, **kwargs):
-        self.type = "CALL"
         super(CallCreditSpread, self).__init__(*args, **kwargs)
+
+        self.type = "CCS"
+        self.strike_spread = self.long.strikePrice - self.short.strikePrice
+        self.analyze()
+        self.setup_field_names()
+
+    @staticmethod
+    def analyze_trades(instrument, exp_dates: list) -> dict:
+        spreads = {}
+        for date in exp_dates:
+            spreads[date] = []
+
+            # group all the strikes into overlapping pairs of 2
+            # and don't get the last one
+            # ex: [1, 2, 3] would turn into [[1, 2], [2, 3]]
+
+            grouped_spreads = list(combinations(date.calls, 2))
+            for raw_spread in grouped_spreads:
+
+                # we're looking at all combinations of strikes so we don't know which
+                # order the long and short leg will be in
+                if raw_spread[0].strikePrice < raw_spread[1].strikePrice:
+                    short_leg = raw_spread[0]
+                    long_leg = raw_spread[1]
+                else:
+                    short_leg = raw_spread[1]
+                    long_leg = raw_spread[0]
+
+                # validate that these aren't the same option. APIs be weird sometimes
+                if short_leg.description == long_leg.description:
+                    continue
+
+                call_spread = CallCreditSpread(instrument, short_leg, long_leg)
+
+                if call_spread.acceptable():
+                    spreads[date].append(call_spread)
+
+        return spreads
 
 
 class IronCondor:
@@ -438,11 +487,12 @@ class Instrument:
     def __repr__(self):
         return self.__str__()
 
-    def analyze_strategy(self, Analyzer):
+    def analyze_strategies(self):
         # note that this search will only be able to filter down raw option dicts
         # NOT VertSpread instances that have been enriched
-        trades = self.chain.search(delta=[-.35, 0])
+        #trades = self.chain.search(delta=[-.35, 0])
 
-        spreads = Analyzer.analyze_trades(self, trades)
+        call_spreads = CallCreditSpread.analyze_trades(self, self.chain.dates)
+        put_spreads = PutCreditSpread.analyze_trades(self, self.chain.dates)
 
-        return spreads
+        return call_spreads, put_spreads

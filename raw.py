@@ -1,14 +1,14 @@
 import logging
 import optparse
+import json
 from utils import get_param
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font
 from account import TDAuth, Watchlist
-from options import VertSpread, PutCreditSpread, CallCreditSpread
+from options import VertSpread
+from typing import List
 from datetime import datetime
 
 # create logger
-logger = logging.getLogger("excel")
+logger = logging.getLogger("raw")
 logger.setLevel(logging.INFO)
 
 ch = logging.StreamHandler()
@@ -20,39 +20,6 @@ logger.addHandler(ch)
 parser = optparse.OptionParser("usage: %prog [-t]")
 parser.add_option('-t', "--test", action="store_true", dest="test", default=False)
 options, args = parser.parse_args()
-
-
-class ExcelFormatter:
-
-    def __init__(self, document):
-        self.wkbook = Workbook()
-        self.sheet = self.wkbook.active
-
-        self.filename = "%s.xlsx" % document
-
-        self.alignment = Alignment(horizontal="center")
-        self.bold = Font(bold=True)
-
-    def save(self):
-        # apply the styles
-        for header in self.sheet["1:1"]:
-            header.font = self.bold
-
-        for row in self.sheet.rows:
-            for cell in row:
-                cell.alignment = self.alignment
-
-        for column in self.sheet.columns:
-            bold_columns = ["% OTM", "R/R", "POP", "Score"]
-            if column[0].value in bold_columns:
-                for cell in column:
-                    cell.font = self.bold
-
-        self.wkbook.save(filename=self.filename)
-
-    def write(self, data: list):
-        self.sheet.append(data)
-
 
 td_client = TDAuth().td_client
 
@@ -66,9 +33,10 @@ else:
 instrument_spreads = watchlist.analyze_strategy()
 
 dt = datetime.strftime(datetime.now(), "%d %b %Y %I-%M-%S")
-filename = "Option Hunter %s" % dt
-sheet = ExcelFormatter(filename)
-sheet.write(VertSpread.field_names)
+filename = "Option Hunter %s.json" % dt
+outfile = open(filename, 'w')
+
+spread_json: List[str] = []
 
 # instrument spreads is a dict with a bunch of instrument expiration dates
 for instrument in instrument_spreads:
@@ -91,13 +59,13 @@ for instrument in instrument_spreads:
             # only show acceptable trades
             # no score of 0 is considered acceptable
             if vert_spread.score > 0:
-                details = vert_spread.details()
-                sheet.write(details)
+
+                spread_json.append(vert_spread.to_dict())
 
                 count += 1
 
     logger.info("Wrote %s %s spreads to %s.xlsx" % (count, symbol, filename))
 
-sheet.save()
-
+outfile.write(json.dumps(spread_json))
+outfile.close()
 
