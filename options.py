@@ -266,7 +266,7 @@ class VertSpread:
 
         # add the % OTM to the final score
         # ex if score = 25 and % OTM = 10 then the final score should be 27.5
-        score += score * (potm/100)
+        #score += score/potm
         
         return round(score, 2)
 
