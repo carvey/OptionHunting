@@ -289,7 +289,7 @@ class VertSpread:
         self.risk = round((self.strike_spread - self.net_credit) * 100, 2)
 
         # this happens sometimes and I have no idea what to do about it
-        if self.strike_spread == self.net_credit:
+        if round(self.strike_spread, 5) == round(self.net_credit, 5):
             self.rr = -1
         else:
             # risk/reward ratio
