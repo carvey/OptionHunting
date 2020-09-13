@@ -1,4 +1,3 @@
-import sys
 import json
 import logging
 from math import sqrt
@@ -30,9 +29,9 @@ class OptionChain:
 
         self.dates = []
 
-        chain_raw = self.td_client.get_options_chain(option_chain=self.params)
+        self.chain_raw = self.td_client.get_options_chain(option_chain=self.params)
 
-        self.process_raw_chain(chain_raw)
+        self.process_raw_chain(self.chain_raw)
 
         strike_count = 0
         for date in self.dates:
@@ -47,18 +46,12 @@ class OptionChain:
 
         self.underlying = chain_raw['underlying']
 
-        # NOTE that different put and call OptionExpDate instances are generated. Should they be merged??
+        # Assumption is made that putExpDateMap and callExpDateMap will have the same keys (expiration dates)
+        # has proved true so far but possible edge case
         for exp_date in chain_raw['putExpDateMap']:
             exp_datetime = self.clean_exp_format(exp_date)
             expiration = OptionExpDate(self.symbol, exp_datetime, chain_raw['putExpDateMap'][exp_date], chain_raw['callExpDateMap'][exp_date])
             self.dates.append(expiration)
-
-            #if exp_date in chain_raw['callExpDateMap']:
-            #    pass
-
-        #for exp_date in chain_raw['callExpDateMap']:
-            #exp_datetime = self.clean_exp_format(exp_date)
-            #self.dates.append(OptionExpDate(self.symbol, exp_datetime, chain_raw['callExpDateMap'][exp_date]))
 
     def clean_exp_format(self, expiration_str: str):
         expiration_str = expiration_str.split(":")[0]

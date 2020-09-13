@@ -1,7 +1,8 @@
+import json
+from datetime import datetime
 from td.client import TDClient
 from options import Instrument
 import logging
-
 
 # create logger
 logger = logging.getLogger(__name__)
@@ -16,7 +17,7 @@ logger.addHandler(ch)
 
 class Watchlist:
 
-    def __init__(self, client, name):
+    def __init__(self, client, name, log_json=False):
         self.td_client = client
         self.instruments = {'EQUITY': [], 'ETF': []}
         self.raw = None
@@ -33,6 +34,15 @@ class Watchlist:
             print("No watchlist found: %s" % name)
         else:
             self.process_raw_watchlist(self.raw)
+
+            if log_json:
+                dt = datetime.strftime(datetime.now(), "%d %b %Y %I-%M-%S")
+                outfile = open("Option Chain %s.json" % dt, 'w')
+                watchlist_option_chains = []
+                for instrument in self.instruments['EQUITY']:
+                    watchlist_option_chains.append(instrument.chain.chain_raw)
+                outfile.write(json.dumps(watchlist_option_chains))
+                outfile.close()
 
     def __str__(self):
         return self.name

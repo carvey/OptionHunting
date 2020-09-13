@@ -24,9 +24,9 @@ options, args = parser.parse_args()
 td_client = TDAuth().td_client
 
 if options.test:
-    watchlist = Watchlist(td_client, get_param('test watchlist'))
+    watchlist = Watchlist(td_client, get_param('test watchlist'), log_json=True)
 else:
-    watchlist = Watchlist(td_client, get_param('watchlist'))
+    watchlist = Watchlist(td_client, get_param('watchlist'), log_json=True)
 
 # need to add searching/filtering from this level. Not buried in the classes
 # list of dicts (each item is an instrument), where each key is a date and values are lists of VerticalSpreads
