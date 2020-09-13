@@ -214,10 +214,10 @@ class VertSpread:
         self.expiration = ' '.join(self.description.split(' ')[1:4])
 
         # Greeks!
-        self.net_delta = self.short.delta - self.long.delta
-        self.net_theta = self.short.theta - self.long.theta
-        self.net_gamma = self.short.gamma - self.long.gamma
-        self.net_vega = self.short.vega - self.long.gamma
+        self.net_delta = round(self.short.delta - self.long.delta, 5)
+        self.net_theta = round(self.short.theta - self.long.theta, 5)
+        self.net_gamma = round(self.short.gamma - self.long.gamma, 5)
+        self.net_vega = round(self.short.vega - self.long.gamma, 5)
 
     def __str__(self) -> str:
         return "%s %s %s/%s" % (self.instrument.symbol, self.expiration, self.short.strikePrice, self.long.strikePrice)
@@ -312,8 +312,8 @@ class VertSpread:
 
         """
         columns = ["Symbol", "Type", "DTE", "Expiration Date", "S. Strike", "L. Strike", "UL Last", "% OTM", "UL Low",
-                   "UL High", "Net Credit", "Premium", "Max Loss", "R/R", "POP", "Score", "L. Spread",
-                   "S. Spread", "Total Spread",
+                   "UL High", "Net Credit", "Premium", "Max Loss", "R/R", "POP", "Score",
+                   "L. B/A Spread", "S. B/A Spread", "Total B/A Spread",
                    "L. Volume", "S. Volume", "Avg Volume",
                    "S. Open Interest", "L. Open Interest",
                    "S. Delta", "L. Delta", "Net Delta",
@@ -373,7 +373,7 @@ class PutCreditSpread(VertSpread):
 
         super(PutCreditSpread, self).__init__(*args, **kwargs)
         self.type = "PCS"
-        self.strike_spread = self.short.strikePrice - self.long.strikePrice
+        self.strike_spread = round(self.short.strikePrice - self.long.strikePrice, 3)
 
         self.analyze()
 
@@ -420,7 +420,7 @@ class CallCreditSpread(VertSpread):
         super(CallCreditSpread, self).__init__(*args, **kwargs)
 
         self.type = "CCS"
-        self.strike_spread = self.long.strikePrice - self.short.strikePrice
+        self.strike_spread = round(self.long.strikePrice - self.short.strikePrice, 3)
         self.analyze()
         self.setup_field_names()
 
