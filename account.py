@@ -32,6 +32,10 @@ class Watchlist:
 
         if not self.raw:
             print("No watchlist found: %s" % name)
+
+            # The watchlist "Russell 1k" is special case and we should create that one if it doesn't exist
+            if name == "Russell 1k":
+                logger.info("The watchlist 'Russell 1k' is provided as a text file in this project. Run create_watchlist.py --name 'Russell 1k' --symbols russell-1k.txt to create it.")
         else:
             self.process_raw_watchlist(self.raw)
 
@@ -100,3 +104,7 @@ class TDAuth:
         # Login to the session
         self.td_client.login()
 
+    def get_account_id(self):
+        accounts = self.td_client.get_accounts()
+        account_id = accounts[0]['securitiesAccount']['accountId']
+        return account_id

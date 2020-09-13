@@ -319,7 +319,7 @@ class VertSpread:
                    "S. Delta", "L. Delta", "Net Delta",
                    "S. Theta", "L. Theta", "Net Theta",
                    "S. Gamma", "L. Gamma", "Net Gamma",
-                   "S. Vega", "L. Vega", "Net Vega"]
+                   "S. Vega", "L. Vega", "Net Vega", "Assumption"]
 
         for column in columns:
             if column not in VertSpread.field_names:
@@ -340,7 +340,7 @@ class VertSpread:
                 self.long.totalVolume, self.short.totalVolume, self.avg_volume,
                 self.short.openInterest, self.long.openInterest,
                 self.short.delta, self.long.delta, self.net_delta, self.short.theta, self.long.theta, self.net_theta,
-                self.short.gamma, self.long.gamma, self.net_gamma, self.short.vega, self.long.vega, self.net_vega]
+                self.short.gamma, self.long.gamma, self.net_gamma, self.short.vega, self.long.vega, self.net_vega, self.assumption]
 
     def acceptable(self):
         option_budget = get_param('account size')
@@ -373,6 +373,7 @@ class PutCreditSpread(VertSpread):
 
         super(PutCreditSpread, self).__init__(*args, **kwargs)
         self.type = "PCS"
+        self.assumption = "Bullish"
         self.strike_spread = round(self.short.strikePrice - self.long.strikePrice, 3)
 
         self.analyze()
@@ -420,6 +421,7 @@ class CallCreditSpread(VertSpread):
         super(CallCreditSpread, self).__init__(*args, **kwargs)
 
         self.type = "CCS"
+        self.assumption = "Bearish"
         self.strike_spread = round(self.long.strikePrice - self.short.strikePrice, 3)
         self.analyze()
         self.setup_field_names()
