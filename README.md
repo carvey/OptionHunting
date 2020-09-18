@@ -30,5 +30,3 @@ Example 2:
    ```
 	https://auth.tdameritrade.com/oauth?client_id=EXAMPLE%40AMER.OAUTHAP&response_type=code&redirect_uri=http%3A%2F%2Flocalhost
    ```	
-
-
