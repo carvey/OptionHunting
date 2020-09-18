@@ -52,7 +52,9 @@ class OptionChain:
             exp_datetime = self.clean_exp_format(exp_date)
             # Only add an expiration date if it comes with a put and call. Does this make sense?
             if exp_date in chain_raw['putExpDateMap'] and exp_date in chain_raw['callExpDateMap']:
-                expiration = OptionExpDate(self.symbol, exp_datetime, chain_raw['putExpDateMap'][exp_date], chain_raw['callExpDateMap'][exp_date])
+                calls = chain_raw['callExpDateMap'][exp_date]
+                puts = chain_raw['putExpDateMap'][exp_date]
+                expiration = OptionExpDate(self.symbol, exp_datetime, puts, calls)
                 self.dates.append(expiration)
 
     def clean_exp_format(self, expiration_str: str):
