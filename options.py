@@ -50,14 +50,23 @@ class OptionChain:
         # has proved true so far but possible edge case
         for exp_date in chain_raw['putExpDateMap']:
             exp_datetime = self.clean_exp_format(exp_date)
-            expiration = OptionExpDate(self.symbol, exp_datetime, chain_raw['putExpDateMap'][exp_date], chain_raw['callExpDateMap'][exp_date])
-            self.dates.append(expiration)
+            # Only add an expiration date if it comes with a put and call. Does this make sense?
+            if exp_date in chain_raw['putExpDateMap'] and exp_date in chain_raw['callExpDateMap']:
+                expiration = OptionExpDate(self.symbol, exp_datetime, chain_raw['putExpDateMap'][exp_date], chain_raw['callExpDateMap'][exp_date])
+                self.dates.append(expiration)
 
     def clean_exp_format(self, expiration_str: str):
         expiration_str = expiration_str.split(":")[0]
         expiration = datetime.strptime(expiration_str, "%Y-%m-%d")
         formatted = expiration.strftime("%d %b %y")
         return formatted
+
+    def expirations_to_dicts(self):
+        dates = []
+        for date in self.dates:
+            dates.append(date.strikes_to_dicts())
+
+        return dates
 
     def search(self, **kwargs):
         strikes = {}
@@ -100,6 +109,16 @@ class OptionExpDate:
     def __len__(self):
         return len(self.calls) + len(self.puts)
 
+    def strikes_to_dicts(self):
+        strikes = []
+        for call in self.calls:
+            strikes.append(call.to_dict())
+
+        for put in self.puts:
+            strikes.append(put.to_dict())
+
+        return strikes
+
     def process_raw_date(self, put_dates: dict, call_dates) -> None:
         for strike, strike_data in call_dates.items():
             self.calls.append(OptionStrike(strike, strike_data[0]))
@@ -121,6 +140,31 @@ class OptionStrike:
 
     def __repr__(self) -> str:
         return self.__str__()
+
+    def to_dict(self):
+        return {
+            "symbol": self.symbol,
+            "UL symbol": self.description.split(" ")[0],
+            "expirationDate": self.expiration_date,
+            "strike": self.strikePrice,
+            "DTE": self.daysToExpiration,
+            "putCall": self.putCall,
+            "ask": self.ask,
+            "bid": self.bid,
+            "last": self.last,
+            "net change": self.netChange,
+            "percent change": self.percentChange,
+            "low price": self.lowPrice,
+            "high price": self.highPrice,
+            "open interest": self.openInterest,
+            "volume": self.totalVolume,
+            "delta": self.delta,
+            "gamma": self.gamma,
+            "theta": self.theta,
+            "vega": self.vega,
+            "rho": self.rho,
+            "time value": self.timeValue
+        }
 
     def process_raw_strike(self, raw_strike: dict):
         """
@@ -178,6 +222,8 @@ class OptionStrike:
 
         self.spread = self.ask - self.bid
         self.mid = (self.ask + self.bid) / 2
+
+        self.expiration_date = ' '.join(self.description.split()[1:3])
 
     def validate_greeks(self):
         """
@@ -472,15 +518,19 @@ class Instrument:
         self.chain = OptionChain(self.td_client, self.symbol)
 
         self.quote = self.chain.underlying
-        self.last = self.quote['last']
-        self.low = self.quote['lowPrice']
-        self.high = self.quote['highPrice']
+        if self.quote:
+            self.last = self.quote['last']
+            self.low = self.quote['lowPrice']
+            self.high = self.quote['highPrice']
 
     def __str__(self):
         return self.symbol
 
     def __repr__(self):
         return self.__str__()
+
+    def strike_dict(self):
+        return self.chain.expirations_to_dicts()
 
     def analyze_strategies(self):
         # note that this search will only be able to filter down raw option dicts

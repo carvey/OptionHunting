@@ -1,4 +1,6 @@
+import time
 import json
+from typing import List
 from datetime import datetime
 from td.client import TDClient
 from options import Instrument
@@ -17,7 +19,7 @@ logger.addHandler(ch)
 
 class Watchlist:
 
-    def __init__(self, client, name, log_json=False):
+    def __init__(self, client, name):
         self.td_client = client
         self.instruments = {'EQUITY': [], 'ETF': []}
         self.raw = None
@@ -39,20 +41,72 @@ class Watchlist:
         else:
             self.process_raw_watchlist(self.raw)
 
-            if log_json:
-                dt = datetime.strftime(datetime.now(), "%d %b %Y %I-%M-%S")
-                outfile = open("Option Chain %s.json" % dt, 'w')
-                watchlist_option_chains = []
-                for instrument in self.instruments['EQUITY']:
-                    watchlist_option_chains.append(instrument.chain.chain_raw)
-                outfile.write(json.dumps(watchlist_option_chains))
-                outfile.close()
-
     def __str__(self):
         return self.name
 
     def __repr__(self):
         return self.__str__()
+
+    def _write(self, title, data):
+        dt = datetime.strftime(datetime.now(), "%d %b %Y %I-%M-%S")
+        filename = "%s %s.json" % (title, dt)
+        outfile = open(filename, 'w')
+
+        outfile.write(json.dumps(data))
+        outfile.close()
+
+    def write_strikes_json(self):
+        strikes = []
+        for instrument in self.instruments['EQUITY']:
+            for expiration in instrument.strike_dict():
+                for strike in expiration:
+                    strikes.append(strike)
+
+        self._write("Option Chain", strikes)
+
+    def write_quotes(self):
+        quotes = []
+        for instrument in self.instruments['EQUITY']:
+            quotes.append(instrument.quote)
+
+        self._write("Quotes", quotes)
+
+    def get_spreads(self):
+
+        # need to add searching/filtering from this level. Not buried in the classes
+        # list of dicts (each item is an instrument), where each key is a date and values are lists of VerticalSpreads
+        instrument_spreads = self.analyze_strategy()
+
+        spread_json: List[str] = []
+
+        # instrument spreads is a dict with a bunch of instrument expiration dates
+        for instrument in instrument_spreads:
+            # these are for logging
+            # at this level we don't know what the symbol is so this will be set if there are any expiration dates in the dict
+            # probably a cleaner way to do this...
+            symbol = ""
+            count = 0
+
+            # loop through all the expiration dates
+            for exp_date, spreads in instrument.items():
+
+                # set the symbol now that we have expiration dates to look at
+                if not symbol:
+                    symbol = exp_date.symbol
+
+                # loop through all spreads in for an expiration date
+                for vert_spread in spreads:
+
+                    # only show acceptable trades
+                    # no score of 0 is considered acceptable
+                    if vert_spread.score > 0:
+                        spread_json.append(vert_spread.to_dict())
+
+                        count += 1
+
+            logger.info("Accepted %s spreads for %s" % (count, symbol))
+
+        return spread_json
 
     def all(self):
         instruments = []
@@ -67,14 +121,28 @@ class Watchlist:
         self.name = raw_watchlist['name']
         self.watchlist_id = raw_watchlist['watchlistId']
 
+        rate_limit = 120
+        rate_delay = 0
+        watchlist_count = len(raw_watchlist['watchlistItems'])
+
+        if watchlist_count > rate_limit:
+            # rate delay is .1 in microseconds
+            rate_delay = 500000
+
         for item in raw_watchlist['watchlistItems']:
             instrument_dict = item['instrument']
             instrument_type = instrument_dict['assetType']
             symbol = instrument_dict['symbol']
 
+            start = datetime.now()
             instrument = Instrument(self.td_client, symbol)
+            end = datetime.now()
+            elapsed = (end - start).microseconds
+            if elapsed < rate_delay:
+                time.sleep(.5)
 
-            self.instruments[instrument_type].append(instrument)
+            if instrument.quote:
+                self.instruments[instrument_type].append(instrument)
 
     def analyze_strategy(self):
         spreads = []
