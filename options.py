@@ -301,7 +301,7 @@ class VertSpread:
             # 20/sqrt(90) is used as a multiplier to ensure that this function equals 20 at rr=100
             return sqrt(rr-10) * (20/sqrt(90))
 
-    def _calculate_score(self, rr, pop, potm):
+    def _calculate_score(self, rr, pop, potm, ba_spread):
         """
         The idea with this is to combine the reward/risk ratio and probability of profit to
         get a one-look estimate of how profitable the trade will be.
@@ -319,6 +319,7 @@ class VertSpread:
         # add the % OTM to the final score
         # ex if score = 25 and % OTM = 10 then the final score should be 27.5
         score += score * (potm / 100)
+        score = score - (score * ba_spread)
         
         return round(score, 2)
 
@@ -343,11 +344,12 @@ class VertSpread:
         # percent OTM
         self.potm = abs(round(100 - ((self.short.strikePrice / self.instrument.last) * 100), 2))
 
-        # aggregated risk score. Needs improvement.
-        self.score = self._calculate_score(self.rr, self.pop, self.potm)
-
         self.total_spread = self.short.spread + self.long.spread
         self.avg_volume = (self.short.totalVolume + self.long.totalVolume) / 2
+
+        # aggregated risk score. Needs improvement.
+        self.score = self._calculate_score(self.rr, self.pop, self.potm, self.total_spread)
+
 
         # euro style IV until I figure out American. Can hopefully approximate
         # this is also IV of short. Need to figure out how to combine for a spread or instrument
