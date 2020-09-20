@@ -146,26 +146,26 @@ class OptionStrike:
     def to_dict(self):
         return {
             "symbol": self.symbol,
-            "UL symbol": self.description.split(" ")[0],
-            "expirationDate": self.expiration_date,
+            "ul_symbol": self.description.split(" ")[0],
+            "expiration_date": self.expiration_date,
             "strike": self.strikePrice,
-            "DTE": self.daysToExpiration,
-            "putCall": self.putCall,
+            "dte": self.daysToExpiration,
+            "put_call": self.putCall,
             "ask": self.ask,
             "bid": self.bid,
             "last": self.last,
-            "net change": self.netChange,
-            "percent change": self.percentChange,
-            "low price": self.lowPrice,
-            "high price": self.highPrice,
-            "open interest": self.openInterest,
+            "net_change": self.netChange,
+            "percent_change": self.percentChange,
+            "low_price": self.lowPrice,
+            "high_price": self.highPrice,
+            "open_interest": self.openInterest,
             "volume": self.totalVolume,
             "delta": self.delta,
             "gamma": self.gamma,
             "theta": self.theta,
             "vega": self.vega,
             "rho": self.rho,
-            "time value": self.timeValue
+            "time_value": self.timeValue
         }
 
     def process_raw_strike(self, raw_strike: dict):
@@ -319,6 +319,13 @@ class VertSpread:
         # add the % OTM to the final score
         # ex if score = 25 and % OTM = 10 then the final score should be 27.5
         score += score * (potm / 100)
+
+        # we only want tight bid/ask spreads. The ba_spread value should be the sum of the short and long b/a spread
+        # here we subtract the total bid/ask spread times the score from the score.
+        # this effectively subtracts the b/a spread as a percentage of the total score
+        # this means that any total bid ask spread >= 1 will result in a negative score and be filtered out
+        # .02 is the lowest possible ba_spread (both short and long b/a spreads are one cent apart) which will subtract 2% off the score
+        # this is very aggressive and might need to be toned down some. TBD
         score = score - (score * ba_spread)
         
         return round(score, 2)
