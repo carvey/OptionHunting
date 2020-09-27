@@ -324,7 +324,7 @@ class VertSpread:
         # here we subtract the total bid/ask spread times the score from the score.
         # this effectively subtracts the b/a spread as a percentage of the total score
         # this means that any total bid ask spread >= 1 will result in a negative score and be filtered out
-        # .02 is the lowest possible ba_spread (both short and long b/a spreads are one cent apart) which will subtract 2% off the score
+        # .02 is the lowest possible ba_spread (both short and long b/a spreads are one cent apart) which will subtract 2% off the score. Fix this comment later
         # this is very aggressive and might need to be toned down some. TBD
         score = score - (score * ba_spread)
         
@@ -351,12 +351,11 @@ class VertSpread:
         # percent OTM
         self.potm = abs(round(100 - ((self.short.strikePrice / self.instrument.last) * 100), 2))
 
-        self.total_spread = self.short.spread + self.long.spread
+        self.total_spread = round(self.short.spread + self.long.spread, 5)
         self.avg_volume = (self.short.totalVolume + self.long.totalVolume) / 2
 
         # aggregated risk score. Needs improvement.
         self.score = self._calculate_score(self.rr, self.pop, self.potm, self.total_spread)
-
 
         # euro style IV until I figure out American. Can hopefully approximate
         # this is also IV of short. Need to figure out how to combine for a spread or instrument
@@ -408,11 +407,12 @@ class VertSpread:
 
         # only add this as an acceptable trade if the max loss is in the acceptable range
         if self.risk <= acceptable_risk:
-            if self.net_credit > 0:
-                #if avg_volume >= 100:
-                if self.short.totalVolume > 100 and self.long.totalVolume > 100:
-                    if self.long.openInterest > 1000 and self.short.openInterest > 1000:
-                        return True
+            if self.total_spread > 0:
+                if self.net_credit > 0:
+                    #if avg_volume >= 100:
+                    if self.short.totalVolume > 100 and self.long.totalVolume > 100:
+                        if self.long.openInterest > 1000 and self.short.openInterest > 1000:
+                            return True
         return False
 
     def to_dict(self):
@@ -440,14 +440,16 @@ class PutCreditSpread(VertSpread):
     @staticmethod
     def analyze_trades(instrument, exp_dates: list) -> dict:
         spreads = {}
+        spread_count = 0
         for date in exp_dates:
             spreads[date] = []
 
             # group all the strikes into overlapping pairs of 2
             # and don't get the last one
             # ex: [1, 2, 3] would turn into [[1, 2], [2, 3]]
-
             grouped_spreads = list(combinations(date.puts, 2))
+            spread_count += len(grouped_spreads)
+
             for raw_spread in grouped_spreads:
 
                 # we're looking at all combinations of strikes so we don't know which
@@ -469,6 +471,7 @@ class PutCreditSpread(VertSpread):
                 if put_spread.acceptable():
                     spreads[date].append(put_spread)
 
+        logger.info("Analyzed %s spreads for %s" % (spread_count, instrument.symbol))
         return spreads
 
 
