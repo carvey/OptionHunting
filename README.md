@@ -1,5 +1,5 @@
 # Option Hunting
-
+![logo](optionHunter.PNG)
 ## Setup Instructions
 
 This project was written on python 3.7.3. Anything before or after that could have some quirks.
