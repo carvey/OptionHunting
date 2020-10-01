@@ -1,4 +1,4 @@
-# Option Hunting
+# Option Hunter
 ![logo](optionHunter.PNG)
 ## Setup Instructions
 
