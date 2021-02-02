@@ -1,45 +1,47 @@
 import time
 import json
+from utils import start_logger
 from typing import List
 from datetime import datetime
 from td.client import TDClient
 from options import Instrument
+from utils import get_param
 import logging
 
-# create logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
-
+logger = start_logger("account")
 
 class Watchlist:
 
-    def __init__(self, client, name):
+    def __init__(self, client, name, remote=True):
         self.td_client = client
         self.instruments = {'EQUITY': [], 'ETF': []}
         self.raw = None
 
-        lists = self.td_client.get_watchlist_accounts('all')
+        if not remote:
+            with open(name) as local_watchlist:
+                symbols = local_watchlist.read().strip().split('\n')
+                for symbol in symbols:
+                    processed = Instrument(self.td_client, symbol)
+                    self.instruments['EQUITY'].append(processed)
 
-        for watchlist in lists:
-            if watchlist['name'] == name:
-                account_id = watchlist['accountId']
-                watchlist_id = watchlist['watchlistId']
-                self.raw = self.td_client.get_watchlist(account=account_id, watchlist_id=watchlist_id)
-
-        if not self.raw:
-            print("No watchlist found: %s" % name)
-
-            # The watchlist "Russell 1k" is special case and we should create that one if it doesn't exist
-            if name == "Russell 1k":
-                logger.info("The watchlist 'Russell 1k' is provided as a text file in this project. Run create_watchlist.py --name 'Russell 1k' --symbols russell-1k.txt to create it.")
         else:
-            self.process_raw_watchlist(self.raw)
+
+            lists = self.td_client.get_watchlist_accounts('all')
+
+            for watchlist in lists:
+                if watchlist['name'] == name:
+                    account_id = watchlist['accountId']
+                    watchlist_id = watchlist['watchlistId']
+                    self.raw = self.td_client.get_watchlist(account=account_id, watchlist_id=watchlist_id)
+
+            if not self.raw:
+                print("No watchlist found: %s" % name)
+
+                # The watchlist "Russell 1k" is special case and we should create that one if it doesn't exist
+                if name == "Russell 1k":
+                    logger.info("The watchlist 'Russell 1k' is provided as a text file in this project. Run create_watchlist.py --name 'Russell 1k' --symbols russell-1k.txt to create it.")
+            else:
+                self.process_raw_watchlist(self.raw)
 
     def __str__(self):
         return self.name
@@ -176,3 +178,20 @@ class TDAuth:
         accounts = self.td_client.get_accounts()
         account_id = accounts[0]['securitiesAccount']['accountId']
         return account_id
+
+
+def get_watchlist(options):
+    # initialize connection with TD ameritrade account
+    td_client = TDAuth()
+
+    # get the local or remote watchlist name
+    if options.local:
+        watchlist_name = get_param('local watchlist')
+    if options.remote:
+        watchlist_name = get_param('remote watchlist')
+
+    # pull the local or remote watchlist and get option chains for each symbol
+    watchlist = Watchlist(td_client.td_client, watchlist_name, remote=options.remote)
+
+    return watchlist
+

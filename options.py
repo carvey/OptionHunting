@@ -1,21 +1,12 @@
 import json
 import logging
 from math import sqrt
-from utils import get_param
+from utils import get_param, start_logger
 from datetime import datetime, timedelta
 from td.option_chain import OptionChain as OptionParams
 from itertools import combinations
 
-# create logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
-
+logger = start_logger("options")
 
 class OptionChain:
 
