@@ -4,5 +4,6 @@
 	"account size": 5000,
 	"max risk per trade": 10,
 	"max total risk": 5000,
-	"search days": 50
+	"search days": 50,
+	"run frequency mins": 5 
 }

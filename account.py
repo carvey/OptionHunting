@@ -1,3 +1,4 @@
+import os
 import time
 import json
 from utils import start_logger
@@ -50,9 +51,12 @@ class Watchlist:
         return self.__str__()
 
     def _write(self, title, data):
+        out_dir = "out-data/%s" % title
+        os.makedirs(out_dir, exist_ok=True)
         dt = datetime.strftime(datetime.now(), "%d %b %Y %I-%M-%S")
         filename = "%s %s.json" % (title, dt)
-        outfile = open(filename, 'w')
+        out_path = os.path.join(out_dir, filename)
+        outfile = open(out_path, 'w')
 
         outfile.write(json.dumps(data))
         outfile.close()
@@ -64,20 +68,20 @@ class Watchlist:
                 for strike in expiration:
                     strikes.append(strike)
 
-        self._write("Option Chain", strikes)
+        self._write("options-chain", strikes)
 
     def write_quotes(self):
         quotes = []
         for instrument in self.instruments['EQUITY']:
             quotes.append(instrument.quote)
 
-        self._write("Quotes", quotes)
+        self._write("underlying-quotes", quotes)
 
     def get_spreads(self):
 
         # need to add searching/filtering from this level. Not buried in the classes
         # list of dicts (each item is an instrument), where each key is a date and values are lists of VerticalSpreads
-        instrument_spreads = self.analyze_strategy()
+        instrument_spreads = self.analyze_strategies()
 
         spread_json: List[str] = []
 
@@ -146,11 +150,12 @@ class Watchlist:
             if instrument.quote:
                 self.instruments[instrument_type].append(instrument)
 
-    def analyze_strategy(self):
+    def analyze_strategies(self):
         spreads = []
         for instrument in self.all():
             logger.info("Analyzing symbol: %s" % instrument)
-            put_spreads, call_spreads = instrument.analyze_strategies()
+            put_spreads = instrument.analyze_PCS()
+            call_spreads = instrument.analyze_CCS()
             spreads.append(put_spreads)
             spreads.append(call_spreads)
 

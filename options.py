@@ -537,12 +537,18 @@ class Instrument:
     def strike_dict(self):
         return self.chain.expirations_to_dicts()
 
-    def analyze_strategies(self):
+    def analyze_CCS(self):
         # note that this search will only be able to filter down raw option dicts
         # NOT VertSpread instances that have been enriched
         #trades = self.chain.search(delta=[-.35, 0])
 
         call_spreads = CallCreditSpread.analyze_trades(self, self.chain.dates)
-        put_spreads = PutCreditSpread.analyze_trades(self, self.chain.dates)
+        return call_spreads
 
-        return call_spreads, put_spreads
+    def analyze_PCS(self):
+        # note that this search will only be able to filter down raw option dicts
+        # NOT VertSpread instances that have been enriched
+        #trades = self.chain.search(delta=[-.35, 0])
+
+        put_spreads = PutCreditSpread.analyze_trades(self, self.chain.dates)
+        return put_spreads
