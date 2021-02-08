@@ -1,6 +1,7 @@
 {
 	"remote watchlist": "Option Hunting",
-	"local watchlist": "test-watchlist.txt",
+	"local watchlist": "watchlists/russell-1k.txt",
+	"test watchlist": "watchlists/test-watchlist.txt",
 	"account size": 5000,
 	"max risk per trade": 10,
 	"max total risk": 5000,

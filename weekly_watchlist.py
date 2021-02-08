@@ -3,7 +3,7 @@ import requests
 from utils import start_logger
 from account import get_watchlist
 
-logger = start_logger("account")
+logger = start_logger("weekly-watchlist")
 
 headers = {"Accept": "application/json, text/plain, */*", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"}
 

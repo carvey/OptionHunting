@@ -13,7 +13,7 @@ options, args = define_parser()
 
 def run_raw():
     # initialize TDA connection and get the appropriate watchlist
-    watchlist = get_watchlist(options)
+    watchlist = get_watchlist(options=options)
 
     # write all the raw strikes to a json file
     watchlist.write_strikes_json()

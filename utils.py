@@ -25,15 +25,16 @@ def start_logger(name):
     return logger
 
 def define_parser():
-    parser = optparse.OptionParser("usage: %prog [-l] [-r]")
+    parser = optparse.OptionParser("usage: %prog [-l] [-r] [-t]")
     parser.add_option('-l', "--local", action="store_true", dest="local", default=False)
     parser.add_option('-r', "--remote", action="store_true", dest="remote", default=False)
+    parser.add_option('-t', "--test", action="store_true", dest="test", default=False)
     options, args = parser.parse_args()
 
     if options.local and options.remote:
         parser.error("You cannot specify a local and remote watchlist.")
 
     if not options.local and not options.remote:
-        parser.error("You must specify to use a local or remote watchlist with --local or --remote")
+        parser.error("You must specify to use a local or remote watchlist with --local (-l) or --remote (-r)")
 
     return options, args

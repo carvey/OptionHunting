@@ -20,7 +20,11 @@ class OptionChain:
 
         self.dates = []
 
-        self.chain_raw = self.td_client.get_options_chain(option_chain=self.params)
+        try:
+            self.chain_raw = self.td_client.get_options_chain(option_chain=self.params)
+        except ConnectionRefusedError:
+            time.sleep(60)
+            self.chain_raw = self.td_client.get_options_chain(option_chain=self.params)
 
         self.process_raw_chain(self.chain_raw)
 

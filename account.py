@@ -24,6 +24,7 @@ class Watchlist:
                 for symbol in symbols:
                     processed = Instrument(self.td_client, symbol)
                     self.instruments['EQUITY'].append(processed)
+                    time.sleep(.6)
 
         else:
 
@@ -77,13 +78,15 @@ class Watchlist:
 
         self._write("underlying-quotes", quotes)
 
-    def get_spreads(self):
+    # TODO: take find_acceptable out of this func and abstract this logic (after rewriting it to clean up)
+    def get_spreads(self, find_acceptable=False):
 
         # need to add searching/filtering from this level. Not buried in the classes
         # list of dicts (each item is an instrument), where each key is a date and values are lists of VerticalSpreads
         instrument_spreads = self.analyze_strategies()
 
         spread_json: List[str] = []
+        acceptable_instruments = []
 
         # instrument spreads is a dict with a bunch of instrument expiration dates
         for instrument in instrument_spreads:
@@ -111,6 +114,12 @@ class Watchlist:
                         count += 1
 
             logger.info("Accepted %s spreads for %s" % (count, symbol))
+
+            if count > 0:
+                acceptable_instruments.append(symbol)
+
+        if find_acceptable:
+            return set(acceptable_instruments)
 
         return spread_json
 
@@ -185,18 +194,24 @@ class TDAuth:
         return account_id
 
 
-def get_watchlist(options):
+def get_watchlist(options=None, process_market=False):
     # initialize connection with TD ameritrade account
     td_client = TDAuth()
 
-    # get the local or remote watchlist name
-    if options.local:
-        watchlist_name = get_param('local watchlist')
-    if options.remote:
-        watchlist_name = get_param('remote watchlist')
+    if process_market:
+        return Watchlist(td_client.td_client, "watchlists/all-symbols.txt", remote=False)
 
-    # pull the local or remote watchlist and get option chains for each symbol
-    watchlist = Watchlist(td_client.td_client, watchlist_name, remote=options.remote)
+    else:
+        # get the local or remote watchlist name
+        if options.local:
+            watchlist_name = get_param('local watchlist')
+        if options.remote:
+            watchlist_name = get_param('remote watchlist')
+        if options.test:
+            watchlist_name = get_param('test watchlist')
 
-    return watchlist
+        # pull the local or remote watchlist and get option chains for each symbol
+        watchlist = Watchlist(td_client.td_client, watchlist_name, remote=options.remote)
+
+        return watchlist
 
