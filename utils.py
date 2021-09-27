@@ -34,7 +34,7 @@ def define_parser():
     if options.local and options.remote:
         parser.error("You cannot specify a local and remote watchlist.")
 
-    if not options.local and not options.remote:
+    if not options.local and not options.remote and not options.test:
         parser.error("You must specify to use a local or remote watchlist with --local (-l) or --remote (-r)")
 
     return options, args
